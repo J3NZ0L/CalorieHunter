@@ -8,6 +8,6 @@
 - [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
 
 ## Phase 2: Providers
-- [ ] Task: Write failing tests for `StubNutritionProvider` (responses, call counter, invalid payload, timeout) and `GeminiNutritionProvider` (mocked client)
-- [ ] Task: Implement `NutritionEstimate`, errors, `StubNutritionProvider`, `GeminiNutritionProvider` in `app/providers.py`
-- [ ] Task: Phase Verification & Checkpoint (Refer to workflow.md)
+- [x] Task: Write failing tests for `StubNutritionProvider` (responses, call counter, invalid payload, timeout) and `GeminiNutritionProvider` (mocked client) eba0597
+- [x] Task: Implement `NutritionEstimate`, errors, `StubNutritionProvider`, `GeminiNutritionProvider` in `app/providers.py` eba0597
+- [x] Task: Phase Verification & Checkpoint (Refer to workflow.md)
