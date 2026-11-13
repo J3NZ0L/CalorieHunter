@@ -1,0 +1,2 @@
+---
+- [ ] **Track: Implement validator/normalizer and Stub + Gemini nutrition providers (AC1–AC6)** *Link: [./tracks/validator_providers_20261113/index.md](./tracks/validator_providers_20261113/index.md)*
