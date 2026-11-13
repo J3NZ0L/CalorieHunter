@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CalorieHunter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 3rem auto; padding: 0 1rem; }
+  input, button { display: block; width: 100%; box-sizing: border-box; margin: .4rem 0; padding: .5rem; }
+  .row { display: flex; gap: .5rem; } .row button { width: 50%; }
+  #error { color: #b00020; min-height: 1.2em; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<h1>CalorieHunter</h1>
+<section id="auth">
+  <form id="auth-form">
+    <input id="username" placeholder="Username" autocomplete="username" required>
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+    <div class="row">
+      <button type="submit" id="login-btn">Log in</button>
+      <button type="button" id="register-btn">Register</button>
+    </div>
+  </form>
+  <p id="error" role="alert"></p>
+</section>
+<section id="app" class="hidden">
+  <p>Logged in as <strong id="who"></strong></p>
+  <button id="logout-btn">Log out</button>
+</section>
+<script>
+const $ = id => document.getElementById(id);
+async function call(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || "Error " + r.status);
+  return data;
+}
+function show(name) {
+  $("auth").classList.toggle("hidden", !!name);
+  $("app").classList.toggle("hidden", !name);
+  if (name) $("who").textContent = name;
+}
+async function submit(path) {
+  $("error").textContent = "";
+  try {
+    const d = await call(path, {username: $("username").value, password: $("password").value});
+    show(d.username);
+  } catch (e) { $("error").textContent = e.message; }
+}
+$("auth-form").addEventListener("submit", e => { e.preventDefault(); submit("/login"); });
+$("register-btn").addEventListener("click", () => submit("/register"));
+$("logout-btn").addEventListener("click", async () => { await call("/logout"); show(null); });
+fetch("/me").then(r => r.ok ? r.json() : null).then(d => d && show(d.username));
+</script>
+</body>
+</html>
