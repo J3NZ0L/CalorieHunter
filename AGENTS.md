@@ -26,7 +26,7 @@ app/
   main.py          # FastAPI app, dependency wiring, HTTP routes (/register, /login, /logout, /estimate, /entries)
   db.py            # SQLite connection management, schema initialization, parameterized queries
   auth.py          # Password hashing, session cookie signing/verification, current-user dependency
-  providers.py     # Clock & NutritionProvider interfaces, SystemClock, Gemini provider, StubNutritionProvider
+  providers.py     # Clock & NutritionProvider interfaces, SystemClock, Gemini provider, StubNutritionProvider, provider/AI-output error classes
   validator.py     # Description trimming/normalization, length bounds, AI output & ±20% macro/energy validation
 static/
   index.html       # Single-page HTML/JS UI (auth form, food input + Estimate, result card + cached badge, today's entries + delete + daily total)
@@ -76,7 +76,10 @@ class NutritionEstimate(BaseModel):  # or dataclass / TypedDict
 class NutritionProvider(Protocol):
     async def estimate(self, description: str) -> NutritionEstimate: ...
 ```
-- **Real Provider:** Uses `google-genai` (configured via environment variables) for manual demo / production.
+- **Error classes (in `app/providers.py`):** `InvalidAIOutputError` (AC5, 502) and `NutritionUnavailableError` (AC6, 503), plus `INVALID_AI_OUTPUT_ERROR` and `UNAVAILABLE_ERROR` message constants. `validator.py` re-uses them.
+- **Missing-field payloads:** A payload lacking a required field cannot be a `NutritionEstimate`; providers parse raw payloads with `parse_estimate()` and raise `InvalidAIOutputError` on failure.
+- **Semantic checks:** Negative values and the ±20% check are done by `validator.validate_estimate()`, not by providers.
+- **Real Provider:** `GeminiNutritionProvider` uses `google-genai` (`GEMINI_API_KEY`, optional `GEMINI_MODEL`). Timeouts and API/network errors raise `NutritionUnavailableError`.
 - **`StubNutritionProvider`:** Deterministic test/demo provider supporting configured responses, call counting (for AC2), invalid payload simulation (AC5), and timeout/unavailable simulation (AC6).
 
 ---
@@ -126,6 +129,8 @@ CREATE TABLE IF NOT EXISTS nutrition_cache (
 ## 6. Validation & Exact HTTP Error Contracts (AC1–AC8)
 
 ### Validation (`app/validator.py`)
+`validator.py` raises `InvalidDescriptionError` for input errors and re-uses `InvalidAIOutputError` from `app/providers.py`.
+
 1. **Input validation:** Trim `description`. If length is `0` or `> 200`, reject immediately before any cache lookup, AI call, or DB write.
 2. **AI output validation:**
    - Must contain `calories_kcal`, `protein_g`, `carbs_g`, `fat_g`, and `confidence`.
@@ -151,7 +156,7 @@ CREATE TABLE IF NOT EXISTS nutrition_cache (
 ## 7. Coding Rules
 
 - Use Python type annotations on all functions, methods, and public interfaces.
-- Keep modules strictly separated by responsibility (`main.py` = HTTP/DI, `db.py` = SQLite, `auth.py` = auth/cookies, `providers.py` = `Clock` & `NutritionProvider`, `validator.py` = normalization & validation).
+- Keep modules strictly separated by responsibility (`main.py` = HTTP/DI, `db.py` = SQLite, `auth.py` = auth/cookies, `providers.py` = `Clock`, `NutritionProvider` & provider/AI-output error classes, `validator.py` = normalization & validation).
 - Never call `datetime.now()` or `date.today()` directly in route handlers or business logic; always use the injected `Clock`.
 - Never call LLM SDKs outside `app/providers.py`.
 - All automated tests must run offline via `uv run pytest` using `StubNutritionProvider` and an injected `Clock`.
