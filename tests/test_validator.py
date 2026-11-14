@@ -35,6 +35,9 @@ def test_description_rejected(bad):
         ("120 g", "120g"),
         ("Briós   120 G", "briós 120g"),
         ("1.5 g salt", "1.5g salt"),
+        ("1,5 g salt", "1.5g salt"),
+        ("250 ml milk", "250ml milk"),
+        ("100 kg", "100kg"),
         ("2 eggs", "2 eggs"),
         ("5 grapes", "5 grapes"),
     ],
@@ -79,3 +82,6 @@ def test_tolerance_boundary_and_zero():
     validate_estimate({**zero, "calories_kcal": 0})
     with pytest.raises(InvalidAIOutputError):
         validate_estimate({**zero, "calories_kcal": 1})
+    # Exact +20% boundary subject to IEEE 754 float drift (expected=9.0, +20%=10.8)
+    float_bound = {"protein_g": 0, "carbs_g": 0, "fat_g": 1, "confidence": "low", "calories_kcal": 10.8}
+    validate_estimate(float_bound)

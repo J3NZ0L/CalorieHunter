@@ -2,7 +2,8 @@
 
 import math
 import re
-from collections.abc import Mapping
+import sys
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.providers import INVALID_AI_OUTPUT_ERROR, InvalidAIOutputError, NutritionEstimate
@@ -14,7 +15,8 @@ CONFIDENCE_VALUES = ("low", "medium", "high")
 _NUMERIC_FIELDS = ("calories_kcal", "protein_g", "carbs_g", "fat_g")
 
 _WHITESPACE = re.compile(r"\s+")
-_NUMBER_G = re.compile(r"(\d(?:[.,]\d+)?) g\b")
+_DECIMAL_COMMA = re.compile(r"(?<=\d),(?=\d)")
+_UNIT_SPACE = re.compile(r"(?<=\d)\s+(?=(?:g|kg|mg|ml|l)\b)")
 
 
 class InvalidDescriptionError(ValueError):
@@ -30,9 +32,10 @@ def validate_description(description: str) -> str:
 
 
 def normalize_text(description: str) -> str:
-    """Cache key: trim, lowercase, collapse spaces, `120 g` -> `120g`."""
+    """Cache key: trim, lowercase, collapse spaces, decimal comma -> dot, `120 g` -> `120g`."""
     text = _WHITESPACE.sub(" ", description.strip().lower())
-    return _NUMBER_G.sub(r"\1g", text)
+    text = _DECIMAL_COMMA.sub(".", text)
+    return _UNIT_SPACE.sub("", text)
 
 
 def _number(payload: Mapping[str, Any], key: str) -> float:
@@ -55,7 +58,28 @@ def validate_estimate(payload: Mapping[str, Any]) -> NutritionEstimate:
     if expected == 0:
         consistent = kcal == 0
     else:
-        consistent = abs(kcal - expected) <= TOLERANCE * expected
+        diff = abs(kcal - expected)
+        limit = TOLERANCE * expected
+        consistent = diff <= limit or math.isclose(diff, limit, rel_tol=1e-9, abs_tol=1e-9)
     if not consistent:
         raise InvalidAIOutputError(INVALID_AI_OUTPUT_ERROR)
     return NutritionEstimate(confidence=confidence, **values)
+
+def test_normalize_text(*args: str) -> None:
+    """Print the normalized form of each provided query string."""
+    for arg in args:
+        print(f"Normalized query: {normalize_text(arg)}")
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Run normalization on CLI arguments, or prompt interactively if none are given."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    if args:
+        test_normalize_text(*args)
+        return
+    test_nutrition_query = input("Enter the test nutrition query text: ")
+    test_normalize_text(test_nutrition_query)
+
+
+if __name__ == "__main__":
+    main()
