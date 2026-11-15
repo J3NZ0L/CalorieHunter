@@ -116,7 +116,7 @@ class GeminiNutritionProvider:
         timeout_s: float = 15.0,
         client: Any = None,
     ) -> None:
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
         self.timeout_s = timeout_s
         if client is not None:
             self._client = client
