@@ -1,7 +1,7 @@
 [project]
 name = "caloriehunter"
 version = "1.0.0"
-description = "Add your description here"
+description = "Meal logging web app with LLM-based nutrition estimates"
 readme = "README.md"
 authors = [
     { name = "J3NZ0L", email = "jeneyzoltan2@gmail.com" }
