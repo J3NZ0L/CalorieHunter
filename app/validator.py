@@ -1,6 +1,7 @@
 """Description trimming/normalization and AI output validation."""
 
 import math
+import os
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -23,8 +24,21 @@ class InvalidDescriptionError(ValueError):
     """Description is empty or longer than 200 characters after trimming."""
 
 
+SIMULATE_FAULT_ENV = "CALORIEHUNTER_SIMULATE_FAULT"
+
+
 def validate_description(description: str) -> str:
     """Return the trimmed description or raise InvalidDescriptionError."""
+    if os.environ.get(SIMULATE_FAULT_ENV) == "1":
+        # !!! DELIBERATE FAULT (defect demo, see docs/defect_demo/README.md) !!!
+        # Length is checked on the RAW text before .strip(), so padded input is
+        # mis-measured: "  " + 200 chars + "  " is wrongly rejected and "   " is
+        # wrongly accepted (and sent to the AI as an empty string).
+        if not 1 <= len(description) <= MAX_DESCRIPTION_LENGTH:
+            raise InvalidDescriptionError(DESCRIPTION_ERROR)
+        return description.strip()
+
+    # CORRECTED: trim first, then measure the trimmed length.
     trimmed = description.strip()
     if not 1 <= len(trimmed) <= MAX_DESCRIPTION_LENGTH:
         raise InvalidDescriptionError(DESCRIPTION_ERROR)
