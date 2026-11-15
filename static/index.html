@@ -5,55 +5,434 @@
 <title>CalorieHunter</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 3rem auto; padding: 0 1rem; }
-  input, button { display: block; width: 100%; box-sizing: border-box; margin: .4rem 0; padding: .5rem; }
-  .row { display: flex; gap: .5rem; } .row button { width: 50%; }
-  #error { color: #b00020; min-height: 1.2em; }
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --border: #d8dee6;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #b00020;
+    --danger-bg: #fdecec;
+    --danger-border: #f5b5be;
+    --badge-bg: #fef3c7;
+    --badge-text: #92400e;
+  }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.45;
+  }
+  h1 { margin-bottom: 1rem; }
+  h2 { font-size: 1.05rem; margin: 0 0 .6rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  input, button {
+    font: inherit;
+    box-sizing: border-box;
+    padding: .55rem .7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  input {
+    display: block;
+    width: 100%;
+    margin: .4rem 0;
+    background: #fff;
+  }
+  button {
+    cursor: pointer;
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    font-weight: 500;
+  }
+  button:hover:not(:disabled) { background: var(--primary-hover); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  button.secondary {
+    background: #fff;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  button.secondary:hover:not(:disabled) { background: #f3f4f6; }
+  button.danger {
+    background: #fff;
+    color: var(--danger);
+    border-color: var(--danger-border);
+    padding: .35rem .65rem;
+    font-size: .875rem;
+  }
+  button.danger:hover:not(:disabled) { background: var(--danger-bg); }
+  .row { display: flex; gap: .5rem; align-items: center; }
+  .auth-actions button { width: 50%; margin: .4rem 0; }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: 1rem;
+  }
+  .estimate-row { display: flex; gap: .5rem; align-items: stretch; }
+  .estimate-row input { flex: 1; margin: 0; }
+  .estimate-row button { width: auto; white-space: nowrap; }
+  .error-banner {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
+    border-radius: 6px;
+    padding: .6rem .75rem;
+    margin: .6rem 0;
+  }
   .hidden { display: none; }
+  .badge {
+    display: inline-block;
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .15rem .45rem;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+  .badge.cached {
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    border: 1px solid #fcd34d;
+  }
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .75rem;
+  }
+  .macros-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .5rem;
+    text-align: center;
+  }
+  .macro-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .45rem .3rem;
+  }
+  .macro-label { font-size: .75rem; color: var(--muted); display: block; }
+  .macro-value { font-weight: 600; font-size: .95rem; }
+  .entries-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: .5rem;
+  }
+  .daily-total { font-size: 1.05rem; }
+  .muted { color: var(--muted); font-size: .875rem; }
+  ul.entries-list { list-style: none; padding: 0; margin: .5rem 0 0; }
+  li.entry-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    padding: .6rem 0;
+    border-top: 1px solid var(--border);
+  }
+  li.entry-item:first-child { border-top: none; }
+  .entry-main { min-width: 0; flex: 1; }
+  .entry-title { font-weight: 500; word-break: break-word; }
+  @media (max-width: 520px) {
+    .macros-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .estimate-row { flex-direction: column; }
+  }
 </style>
 </head>
 <body>
 <h1>CalorieHunter</h1>
-<section id="auth">
+
+<section id="auth" class="card">
   <form id="auth-form">
     <input id="username" placeholder="Username" autocomplete="username" required>
-    <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
-    <div class="row">
+    <input id="password" type="password" placeholder="Password (min 6 chars)" autocomplete="current-password" required>
+    <div class="row auth-actions">
       <button type="submit" id="login-btn">Log in</button>
-      <button type="button" id="register-btn">Register</button>
+      <button type="button" id="register-btn" class="secondary">Register</button>
     </div>
   </form>
-  <p id="error" role="alert"></p>
+  <p id="error" class="error-banner hidden" role="alert"></p>
 </section>
+
 <section id="app" class="hidden">
-  <p>Logged in as <strong id="who"></strong></p>
-  <button id="logout-btn">Log out</button>
+  <div class="topbar">
+    <span>Logged in as <strong id="who"></strong></span>
+    <button id="logout-btn" type="button" class="secondary">Log out</button>
+  </div>
+
+  <div class="card">
+    <h2>Estimate meal nutrition</h2>
+    <form id="estimate-form">
+      <div class="estimate-row">
+        <input id="food-input" placeholder="e.g. 150 g chicken breast or briós 120 g" aria-label="Food description">
+        <button type="submit" id="estimate-btn">Estimate</button>
+      </div>
+    </form>
+    <p id="app-error" class="error-banner hidden" role="alert"></p>
+  </div>
+
+  <div id="result-card" class="card hidden" aria-live="polite">
+    <div class="result-header">
+      <strong id="res-desc"></strong>
+      <span id="res-cached" class="badge cached hidden">cached</span>
+    </div>
+    <div class="macros-grid">
+      <div class="macro-box">
+        <span class="macro-label">kcal</span>
+        <span id="res-kcal" class="macro-value"></span>
+      </div>
+      <div class="macro-box">
+        <span class="macro-label">P</span>
+        <span id="res-protein" class="macro-value"></span>
+      </div>
+      <div class="macro-box">
+        <span class="macro-label">C</span>
+        <span id="res-carbs" class="macro-value"></span>
+      </div>
+      <div class="macro-box">
+        <span class="macro-label">F</span>
+        <span id="res-fat" class="macro-value"></span>
+      </div>
+      <div class="macro-box">
+        <span class="macro-label">Confidence</span>
+        <span id="res-confidence" class="macro-value"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="entries-section" class="card">
+    <div class="entries-header">
+      <div>
+        <h2 style="display:inline;">Today's entries</h2>
+        <span id="today-date" class="muted"></span>
+      </div>
+      <div class="daily-total">
+        Daily total: <strong id="daily-total">0 kcal</strong>
+      </div>
+    </div>
+    <p id="entries-empty" class="muted">No entries logged today.</p>
+    <ul id="entries-list" class="entries-list"></ul>
+  </div>
 </section>
+
 <script>
 const $ = id => document.getElementById(id);
-async function call(path, body) {
-  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"},
-    body: body ? JSON.stringify(body) : undefined});
+
+function setBanner(el, msg) {
+  if (msg) {
+    el.textContent = msg;
+    el.classList.remove("hidden");
+  } else {
+    el.textContent = "";
+    el.classList.add("hidden");
+  }
+}
+
+function fmt(n) {
+  const num = Number(n);
+  return Number.isFinite(num) ? String(Number(num.toFixed(2))) : "0";
+}
+
+class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function api(path, method = "POST", body = undefined) {
+  const opts = { method, headers: {} };
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || "Error " + r.status);
+  if (!r.ok) {
+    throw new ApiError(r.status, data.detail || "Error " + r.status);
+  }
   return data;
 }
-function show(name) {
-  $("auth").classList.toggle("hidden", !!name);
-  $("app").classList.toggle("hidden", !name);
-  if (name) $("who").textContent = name;
+
+function resetAppState() {
+  $("food-input").value = "";
+  setBanner($("app-error"), "");
+  $("result-card").classList.add("hidden");
+  $("entries-list").innerHTML = "";
+  $("entries-empty").classList.remove("hidden");
+  $("daily-total").textContent = "0 kcal";
+  $("today-date").textContent = "";
 }
-async function submit(path) {
-  $("error").textContent = "";
+
+function showUser(name) {
+  $("auth").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("who").textContent = name;
+  setBanner($("error"), "");
+  setBanner($("app-error"), "");
+}
+
+function showAuth(errorMsg = "") {
+  resetAppState();
+  $("app").classList.add("hidden");
+  $("auth").classList.remove("hidden");
+  $("who").textContent = "";
+  setBanner($("error"), errorMsg);
+}
+
+function handleAppError(err) {
+  if (err instanceof ApiError && err.status === 401) {
+    showAuth(err.message);
+    return;
+  }
+  setBanner($("app-error"), err.message || "Request failed");
+}
+
+function renderResult(entry) {
+  $("res-desc").textContent = entry.description;
+  $("res-cached").classList.toggle("hidden", !entry.cached);
+  $("res-kcal").textContent = fmt(entry.calories_kcal);
+  $("res-protein").textContent = fmt(entry.protein_g) + " g";
+  $("res-carbs").textContent = fmt(entry.carbs_g) + " g";
+  $("res-fat").textContent = fmt(entry.fat_g) + " g";
+  $("res-confidence").textContent = entry.confidence;
+  $("result-card").classList.remove("hidden");
+}
+
+function renderEntries(data) {
+  $("today-date").textContent = data.date ? `(${data.date})` : "";
+  $("daily-total").textContent = `${fmt(data.total_kcal)} kcal`;
+  const list = $("entries-list");
+  list.innerHTML = "";
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  $("entries-empty").classList.toggle("hidden", entries.length > 0);
+
+  for (const entry of entries) {
+    const li = document.createElement("li");
+    li.className = "entry-item";
+
+    const main = document.createElement("div");
+    main.className = "entry-main";
+
+    const title = document.createElement("div");
+    title.className = "entry-title";
+    title.textContent = entry.description + " ";
+    if (entry.cached) {
+      const badge = document.createElement("span");
+      badge.className = "badge cached";
+      badge.textContent = "cached";
+      title.appendChild(badge);
+    }
+
+    const meta = document.createElement("div");
+    meta.className = "muted";
+    meta.textContent = `${fmt(entry.calories_kcal)} kcal · P ${fmt(entry.protein_g)}g · C ${fmt(entry.carbs_g)}g · F ${fmt(entry.fat_g)}g · ${entry.confidence}`;
+
+    main.appendChild(title);
+    main.appendChild(meta);
+
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "danger";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", async () => {
+      delBtn.disabled = true;
+      setBanner($("app-error"), "");
+      try {
+        await api(`/entries/${entry.id}`, "DELETE");
+        await loadEntries();
+      } catch (err) {
+        delBtn.disabled = false;
+        handleAppError(err);
+      }
+    });
+
+    li.appendChild(main);
+    li.appendChild(delBtn);
+    list.appendChild(li);
+  }
+}
+
+async function loadEntries() {
+  const data = await api("/entries", "GET");
+  renderEntries(data);
+}
+
+async function submitAuth(path) {
+  setBanner($("error"), "");
   try {
-    const d = await call(path, {username: $("username").value, password: $("password").value});
-    show(d.username);
-  } catch (e) { $("error").textContent = e.message; }
+    const d = await api(path, "POST", {
+      username: $("username").value,
+      password: $("password").value,
+    });
+    $("password").value = "";
+    showUser(d.username);
+    await loadEntries();
+  } catch (e) {
+    setBanner($("error"), e.message);
+  }
 }
-$("auth-form").addEventListener("submit", e => { e.preventDefault(); submit("/login"); });
-$("register-btn").addEventListener("click", () => submit("/register"));
-$("logout-btn").addEventListener("click", async () => { await call("/logout"); show(null); });
-fetch("/me").then(r => r.ok ? r.json() : null).then(d => d && show(d.username));
+
+$("auth-form").addEventListener("submit", e => {
+  e.preventDefault();
+  submitAuth("/login");
+});
+
+$("register-btn").addEventListener("click", () => submitAuth("/register"));
+
+$("logout-btn").addEventListener("click", async () => {
+  try {
+    await api("/logout", "POST");
+  } finally {
+    showAuth();
+  }
+});
+
+$("estimate-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  setBanner($("app-error"), "");
+  const btn = $("estimate-btn");
+  btn.disabled = true;
+  btn.textContent = "Estimating...";
+  try {
+    const entry = await api("/estimate", "POST", { description: $("food-input").value });
+    $("food-input").value = "";
+    renderResult(entry);
+    await loadEntries();
+  } catch (err) {
+    handleAppError(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Estimate";
+  }
+});
+
+fetch("/me")
+  .then(r => (r.ok ? r.json() : null))
+  .then(async d => {
+    if (d && d.username) {
+      showUser(d.username);
+      await loadEntries();
+    }
+  })
+  .catch(() => {});
 </script>
 </body>
 </html>
