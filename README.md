@@ -53,7 +53,7 @@ Current result: `66 passed`. The faulty vs. corrected test runs can be found in 
 
 ### Verification of the acceptance criteria
 
-Every AC has a `test_acN_*` test in both [tests/test_acceptance.py](tests/test_acceptance.py) and [tests/test_api.py](tests/test_api.py). The validator and the providers have their own unit tests in [tests/test_validator.py](tests/test_validator.py) and [tests/test_providers.py](tests/test_providers.py).
+Every AC has a `test_acN_*` test in both [tests/test_acceptance.py](tests/test_acceptance.py) and [tests/test_api.py](tests/test_api.py). The validator and the providers have their own unit tests in [tests/test_validator.py](tests/test_validator.py) and [tests/test_providers.py](tests/test_providers.py). The full test-to-AC mapping is in [docs/ac_verification.md](docs/ac_verification.md).
 
 | AC | Case | Verification |
 |---|---|---|
