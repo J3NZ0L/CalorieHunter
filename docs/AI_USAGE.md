@@ -29,9 +29,9 @@ For these reasons, I was happy to accept the proposed dependency injection overr
 - A draft of the [specification](/SPECIFICATION.md)
 
 #### Verification Evidence :
-- Code reference: Implemented in ... TODO
-- Test reference: Utilized by tests in ... TODO
-- Execution result: Running pytest ... TODO
+- Code reference: Implemented in [app/providers.py](/app/providers.py) (`Clock`, `SystemClock`, `NutritionProvider`, `StubNutritionProvider`, `GeminiNutritionProvider`) and wired via `create_app()` and FastAPI `Depends(get_clock)` in [app/main.py](/app/main.py), as specified in [AGENTS.md](/AGENTS.md).
+- Test reference: Utilized by `FixedClock` injected into `create_app()` in [tests/test_smoke.py](/tests/test_smoke.py) and by `StubNutritionProvider` and the injected fake Gemini client in [tests/test_providers.py](/tests/test_providers.py).
+- Execution result: Running `uv run pytest -v` executes all 46 tests completely offline and deterministically (`46 passed in 0.62s`), without making any live network calls or depending on the system wall clock.
 
 ## Implementation
 
