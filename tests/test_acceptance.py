@@ -69,6 +69,22 @@ def _table_count(db_path: str, table: str) -> int:
         return int(row[0])
 
 
+def _user_id(db_path: str, username: str) -> int:
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+        assert row is not None
+        return int(row[0])
+
+
+def _entry_exists_for(db_path: str, entry_id: int, user_id: int) -> bool:
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM entries WHERE id = ? AND user_id = ?", (entry_id, user_id)
+        ).fetchone()
+        assert row is not None
+        return int(row[0]) == 1
+
+
 def test_ac1_normal_estimate(tmp_path: Path) -> None:
     """AC1 — Normal case: normal food estimate returns exact macros, logs entry, and updates daily total."""
     db_path = str(tmp_path / "ac1.db")
@@ -140,18 +156,40 @@ def test_ac3_length_boundary(tmp_path: Path) -> None:
     assert ok.status_code == 200
     assert stub.call_count == 1
     assert _table_count(db_path, "entries") == 1
+    assert _table_count(db_path, "nutrition_cache") == 1
 
     too_long = client.post("/estimate", json={"description": "b" * 201})
     assert too_long.status_code == 400
     assert too_long.json()["detail"] == DESCRIPTION_ERROR == "Description must be 1–200 characters"
     assert stub.call_count == 1
     assert _table_count(db_path, "entries") == 1
+    assert _table_count(db_path, "nutrition_cache") == 1
 
-    # Trimmed length is what counts toward the 200-character limit.
+    # Trimmed length is what counts toward the 200-character limit:
+    # 204 raw chars that trim to exactly 200 must be accepted and stored trimmed.
     padded_ok = client.post("/estimate", json={"description": "  " + ("c" * 200) + "  "})
     assert padded_ok.status_code == 200
+    assert padded_ok.json()["description"] == "c" * 200
     assert stub.call_count == 2
     assert _table_count(db_path, "entries") == 2
+
+    # ...and 205 raw chars that trim to 201 must still be rejected.
+    padded_too_long = client.post("/estimate", json={"description": "  " + ("d" * 201) + "  "})
+    assert padded_too_long.status_code == 400
+    assert padded_too_long.json()["detail"] == DESCRIPTION_ERROR
+    assert stub.call_count == 2
+    assert _table_count(db_path, "entries") == 2
+    assert _table_count(db_path, "nutrition_cache") == 2
+
+    # Lower bound: a single character after trimming is accepted.
+    one_char = client.post("/estimate", json={"description": "  x  "})
+    assert one_char.status_code == 200
+    assert one_char.json()["description"] == "x"
+
+    # The limit counts characters, not UTF-8 bytes (Hungarian input: "á" is 2 bytes).
+    accented = client.post("/estimate", json={"description": "á" * 200})
+    assert accented.status_code == 200
+    assert stub.call_count == 4
 
 
 def test_ac4_empty_input(tmp_path: Path) -> None:
@@ -267,18 +305,30 @@ def test_ac7_unauthorised_access(tmp_path: Path) -> None:
     assert created.status_code == 200
     entry_id = created.json()["id"]
 
+    alice_id = _user_id(db_path, "alice")
+    assert _entry_exists_for(db_path, entry_id, alice_id)
+
     user_b = _register_and_login(app, username="bob", password="secret123")
     assert user_b.delete(f"/entries/{entry_id}").status_code == 404
+    # A nonexistent id gives the same 404, so the response leaks nothing about other users' ids.
+    assert user_b.delete(f"/entries/{entry_id + 999}").status_code == 404
+    assert bad_cookie.delete(f"/entries/{entry_id}").status_code == 401
+
+    # Verify directly in the DB (not only via the API) that the row survived, still owned by Alice.
+    assert _entry_exists_for(db_path, entry_id, alice_id)
+    assert _table_count(db_path, "entries") == 1
 
     a_entries = user_a.get("/entries").json()["entries"]
     assert len(a_entries) == 1
     assert a_entries[0]["id"] == entry_id
+    assert user_b.get("/entries").json()["entries"] == []
 
 
 def test_ac8_daily_total_and_date_boundary(tmp_path: Path) -> None:
     """AC8 — Date boundary / regression case: seeded clock separates yesterday vs today entries and delete recalculates total."""
     db_path = str(tmp_path / "ac8.db")
-    clock = SeededClock(datetime(2026, 1, 14, 18, 0, 0))
+    # Sharpest boundary: last second of yesterday vs first second of today.
+    clock = SeededClock(datetime(2026, 1, 14, 23, 59, 59))
     stub = StubNutritionProvider(
         responses={
             "dinner yesterday": {"calories_kcal": 700, "protein_g": 40, "carbs_g": 80, "fat_g": 24, "confidence": "medium"},
@@ -291,7 +341,7 @@ def test_ac8_daily_total_and_date_boundary(tmp_path: Path) -> None:
 
     assert client.post("/estimate", json={"description": "dinner yesterday"}).status_code == 200
 
-    clock.set(datetime(2026, 1, 15, 9, 0, 0))
+    clock.set(datetime(2026, 1, 15, 0, 0, 0))
     oatmeal = client.post("/estimate", json={"description": "oatmeal"})
     assert oatmeal.status_code == 200
     oatmeal_id = oatmeal.json()["id"]
